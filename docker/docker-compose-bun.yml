@@ -1,0 +1,82 @@
+services:
+  # Meilisearch search engine backend
+  meilisearch:
+    image: getmeili/meilisearch:v1.38.2
+    container_name: georef-api-bun_meilisearch
+    environment:
+      - MEILI_MASTER_KEY=${MEILISEARCH_API_KEY}
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_DB_PATH=/meili_data
+      - MEILI_ENV=development
+    volumes:
+      - data_meilisearch:/meili_data
+    ports:
+      - "7700:7700"
+    networks:
+      - geonet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Georef AR API (Bun.js)
+  app:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.bun
+    container_name: georef-api-bun_app
+    environment:
+      # Server Configuration
+      - PORT=5000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+
+      # Meilisearch Configuration
+      - MEILISEARCH_HOST=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=${MEILISEARCH_API_KEY}
+
+      # API Configuration
+      - DATA_VERSION=${DATA_VERSION:-1.0.0}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DISABLE_CACHE=true
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+
+      # Data Loading Configuration
+      - BATCH_SIZE=${BATCH_SIZE:-2000}
+      - MAX_PENDING_BATCHES=${MAX_PENDING_BATCHES:-4}
+
+      # Optional: For monitoring/observability
+      - ENABLE_METRICS=${ENABLE_METRICS:-false}
+
+    volumes:
+      # Config volume (read-only)
+      - ../config:/app/config:ro
+      
+      # Logs volume
+      - ../logs:/app/logs
+      
+      # Cache volume (optional for performance optimization)
+      - ../cache:/app/cache
+
+    ports:
+      - "8080:5000"
+    
+    networks:
+      - geonet
+    
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    
+    restart: unless-stopped
+
+networks:
+  geonet:
+    driver: bridge
+
+volumes:
+  data_meilisearch:
+    driver: local

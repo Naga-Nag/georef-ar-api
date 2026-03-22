@@ -1,0 +1,24 @@
+# Bun configuration file
+# Documentation: https://bun.sh/docs/runtime/configuration
+
+[install]
+# Install production dependencies only in production
+production = false
+
+[test]
+# Test configuration
+timeout = 30000  # 30 seconds
+root = "./tests"
+
+[bundle]
+# Bundle configuration
+target = "bun"
+splitting = false
+naming = "[dir]/[name].[ext]"
+
+[dev]
+# Development server configuration
+hot = true
+
+[[preload]]
+path = "./tests/setup.ts"
